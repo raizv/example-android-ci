@@ -1,0 +1,69 @@
+import java.nio.file.Files
+
+plugins {
+    id 'com.android.application'
+    id 'com.github.triplet.play' version '2.1.0'
+}
+
+apply plugin: 'com.android.application'
+
+def secretsPropertiesFile = rootProject.file("secrets.properties")
+def secretProperties = new Properties()
+if (secretsPropertiesFile.exists()) {
+    secretProperties.load(new FileInputStream(secretsPropertiesFile))
+}
+
+else {
+    secretProperties.setProperty("SIGNING_KEYSTORE_PASSWORD", "${System.getenv('SIGNING_KEYSTORE_PASSWORD')}")
+    secretProperties.setProperty("SIGNING_KEY_ALIAS", "${System.getenv('SIGNING_KEY_ALIAS')}")
+    secretProperties.setProperty("SIGNING_KEY_PASSWORD", "${System.getenv('SIGNING_KEY_PASSWORD')}")
+}
+
+android {
+    compileSdkVersion 28
+    buildToolsVersion '28.0.3'
+
+    defaultConfig {
+        applicationId "com.atlasian.bitbucketpipelines.demoapp"
+        minSdkVersion 19
+        targetSdkVersion 28
+        versionCode Integer.valueOf(System.env.BITBUCKET_BUILD_NUMBER ?: 1)
+
+        versionName "5.5.5-${System.env.BITBUCKET_COMMIT.substring(0, 8)}"
+
+    }
+    play {
+        track = 'internal' //'alpha','beta' or 'production'
+        serviceAccountCredentials = file('../google_play_api_key.json')
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("../android-signing-keystore.jks")
+            storePassword "${secretProperties['SIGNING_KEYSTORE_PASSWORD']}"
+            keyAlias "${secretProperties['SIGNING_KEY_ALIAS']}"
+            keyPassword "${secretProperties['SIGNING_KEY_PASSWORD']}"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            testCoverageEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    testImplementation 'junit:junit:4.12'
+
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+
+}

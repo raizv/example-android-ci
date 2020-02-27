@@ -1,0 +1,70 @@
+
+pipelines:
+  branches:
+    master:
+      - parallel:
+        - step:
+            name: Build
+            image: bitbucketpipelines/android-ci-image
+            caches:
+              - gradle
+            script:
+              - echo "$SIGNING_JKS_FILE" | base64 -d > android-signing-keystore.jks
+              - ./gradlew assembleRelease
+            artifacts:
+              - app/build/outputs/**
+  
+        - step:
+            name: Build Debug
+            caches:
+              - gradle
+            image: bitbucketpipelines/android-ci-image
+            script:
+              - echo "$SIGNING_JKS_FILE" | base64 -d > android-signing-keystore.jks
+              - ./gradlew assembleRelease
+            artifacts:
+            - app/build/outputs/**
+
+      - step:
+          name: Test
+          image: bitbucketpipelines/android-ci-image
+          script:
+            - ./gradlew test
+
+
+      - step:
+          name: Publish Internal
+          image: bitbucketpipelines/android-ci-image
+          deployment: Internal
+          script:
+            - echo $GOOGLE_API_KEY_JSON > google_play_api_key.json
+            - echo "$SIGNING_JKS_FILE" | base64 -d > android-signing-keystore.jks
+            - ./gradlew publishReleaseApk
+
+
+      - step:
+          name: Promote Internal to Alpha
+          image: bitbucketpipelines/android-ci-image
+          deployment: Alpha
+          trigger: manual
+          script:
+            - echo $GOOGLE_API_KEY_JSON > google_play_api_key.json
+            - ./gradlew promoteArtifact --track alpha
+
+      - step:
+          name: Promote Alpha to Beta
+          trigger: manual
+          image: bitbucketpipelines/android-ci-image
+          deployment: Beta
+          script:
+            - echo $GOOGLE_API_KEY_JSON > google_play_api_key.json
+            - ./gradlew promoteArtifact --track beta
+
+      - step:
+          name: Promote Beta to Production
+          trigger: manual
+          image: bitbucketpipelines/android-ci-image
+          deployment: Production
+          script:
+            - echo $GOOGLE_API_KEY_JSON > google_play_api_key.json
+            - ./gradlew promoteArtifact --track production
